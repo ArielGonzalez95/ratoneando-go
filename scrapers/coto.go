@@ -119,11 +119,16 @@ func Coto(query string) ([]products.Schema, error) {
 			}
 			unavailable := len(rec.Attributes.SkuQuantity) > 0 && rec.Attributes.SkuQuantity[0] == "0"
 
+			link := strings.Replace(rawProduct.DetailsAction.RecordState, "?format=json", "", -1)
+			if !strings.HasPrefix(link, "http") {
+				link = "https://www.cotodigital.com.ar" + link
+			}
+
 			return products.ExtendedSchema{
 				ID:          rawProduct.CotoResponseProduct.Attributes.ProductRepositoryId[0],
 				Source:      "coto",
-				Name:        rawProduct.CotoResponseProduct.Attributes.ProductDisplayName[0],
-				Link:        strings.Replace(rawProduct.DetailsAction.RecordState, "?format=json", "", -1),
+				Name:        strings.TrimSpace(rawProduct.CotoResponseProduct.Attributes.ProductDisplayName[0]),
+				Link:        link,
 				Image:       imageUrl,
 				Unavailable: unavailable,
 				Price:       price,
