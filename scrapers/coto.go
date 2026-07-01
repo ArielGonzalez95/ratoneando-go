@@ -59,21 +59,36 @@ func Coto(query string) ([]products.Schema, error) {
 		Normalizer: func(response CotoResponseStructure) []CotoRawProduct {
 			var normalizedProducts []CotoRawProduct
 
-			for _, rawProduct := range response.Contents[0].Main[1].Contents[0].Records {
-        var productData CotoProductDiscounts
+			// Buscar el bloque de resultados (puede estar en Main[1] o Main[2] según versión)
+			var records []CotoResponseProduct
+			for _, main := range response.Contents[0].Main {
+				for _, content := range main.Contents {
+					if len(content.Records) > 0 {
+						records = content.Records
+						break
+					}
+				}
+				if len(records) > 0 {
+					break
+				}
+			}
 
+			for _, rawProduct := range records {
+				if len(rawProduct.Records) == 0 {
+					continue
+				}
 				if len(rawProduct.Records[0].Attributes.ProductDiscounts) == 0 {
 					continue
 				}
 
+				var productData CotoProductDiscounts
 				err := json.Unmarshal([]byte(rawProduct.Records[0].Attributes.ProductDiscounts[0]), &productData)
-
 				if err != nil {
 					logger.LogWarn(fmt.Sprintf("Error unmarshalling product data: %s", err))
 				}
 
 				normalizedProducts = append(normalizedProducts, CotoRawProduct{
-					CotoResponseProduct: rawProduct,
+					CotoResponseProduct:  rawProduct,
 					CotoProductDiscounts: productData,
 				})
 			}
@@ -81,23 +96,36 @@ func Coto(query string) ([]products.Schema, error) {
 			return normalizedProducts
 		},
 		Extractor: func(rawProduct CotoRawProduct) products.ExtendedSchema {
-      listPrice, _ := strconv.ParseFloat(rawProduct.Records[0].Attributes.SkuActivePrice[0], 64)
-      var price float64 = listPrice
+			rec := rawProduct.Records[0]
+			if len(rec.Attributes.SkuActivePrice) == 0 ||
+				len(rawProduct.CotoResponseProduct.Attributes.ProductRepositoryId) == 0 ||
+				len(rawProduct.CotoResponseProduct.Attributes.ProductDisplayName) == 0 {
+				return products.ExtendedSchema{}
+			}
 
-      if len(rawProduct.CotoProductDiscounts) > 0 {
-          precioDescuento, _ := strconv.ParseFloat(rawProduct.CotoProductDiscounts[0].PrecioDescuento, 64)
-          if (precioDescuento > 0) {
-              price = precioDescuento
-          }
-      }
+			listPrice, _ := strconv.ParseFloat(rec.Attributes.SkuActivePrice[0], 64)
+			price := listPrice
+
+			if len(rawProduct.CotoProductDiscounts) > 0 {
+				precioDescuento, _ := strconv.ParseFloat(rawProduct.CotoProductDiscounts[0].PrecioDescuento, 64)
+				if precioDescuento > 0 {
+					price = precioDescuento
+				}
+			}
+
+			imageUrl := ""
+			if len(rec.Attributes.ProductMediumImageUrl) > 0 {
+				imageUrl = rec.Attributes.ProductMediumImageUrl[0]
+			}
+			unavailable := len(rec.Attributes.SkuQuantity) > 0 && rec.Attributes.SkuQuantity[0] == "0"
 
 			return products.ExtendedSchema{
 				ID:          rawProduct.CotoResponseProduct.Attributes.ProductRepositoryId[0],
 				Source:      "coto",
 				Name:        rawProduct.CotoResponseProduct.Attributes.ProductDisplayName[0],
 				Link:        strings.Replace(rawProduct.DetailsAction.RecordState, "?format=json", "", -1),
-				Image:       rawProduct.Records[0].Attributes.ProductMediumImageUrl[0],
-				Unavailable: rawProduct.Records[0].Attributes.SkuQuantity[0] == "0",
+				Image:       imageUrl,
+				Unavailable: unavailable,
 				Price:       price,
 				ListPrice:   listPrice,
 			}
