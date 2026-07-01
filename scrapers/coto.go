@@ -32,7 +32,7 @@ type CotoResponseProduct struct {
 }
 
 type CotoProductDiscounts []struct {
-	precioDescuento string
+	PrecioDescuento string `json:"precioDescuento"`
 }
 
 type CotoRawProduct struct {
@@ -85,7 +85,7 @@ func Coto(query string) ([]products.Schema, error) {
       var price float64 = listPrice
 
       if len(rawProduct.CotoProductDiscounts) > 0 {
-          precioDescuento, _ := strconv.ParseFloat(rawProduct.CotoProductDiscounts[0].precioDescuento, 64)
+          precioDescuento, _ := strconv.ParseFloat(rawProduct.CotoProductDiscounts[0].PrecioDescuento, 64)
           if (precioDescuento > 0) {
               price = precioDescuento
           }
