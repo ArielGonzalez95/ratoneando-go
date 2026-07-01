@@ -1,14 +1,14 @@
 package scrapers
 
 import (
-	"ratoneando/cores/vtex"
+	"ratoneando/cores/catalog"
 	"ratoneando/products"
 )
 
 func Vea(query string) ([]products.Schema, error) {
-	return vtex.Core(vtex.CoreProps{
+	return catalog.Core(catalog.CoreProps{
 		Query:   query,
-		BaseUrl: "https://www.jumbo.com.ar",
+		BaseUrl: "https://www.vea.com.ar",
 		Source:  "vea",
 	})
 }
